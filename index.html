@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Carte à gratter - Full Mobile</title>
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #f2f2f2;
+  height: 100%;
+}
+
+.wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+
+.frame {
+  background: white;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+.container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div class="frame">
+    <div class="container">
+      <canvas id="bgCanvas"></canvas>
+      <canvas id="overlayCanvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+const bgCanvas = document.getElementById("bgCanvas");
+const ovCanvas = document.getElementById("overlayCanvas");
+const bgCtx = bgCanvas.getContext("2d");
+const ovCtx = ovCanvas.getContext("2d");
+const dpr = window.devicePixelRatio || 1;
+
+const bgImg = new Image();
+bgImg.src = "fond.png"; // ton fond
+const overlayImg = new Image();
+overlayImg.src = "overlay.png";
+
+let scratching = false;
+
+// Fonction qui ajuste le canvas pour remplir tout l'écran visible mobile
+function resize() {
+  const container = bgCanvas.parentElement;
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Calcul largeur et hauteur maximales pour respecter le ratio
+  const ratioCard = 148 / 105;
+  let w = vw;
+  let h = w * ratioCard;
+
+  if (h < vh) {
+    // si la hauteur est trop petite, on utilise la hauteur complète
+    h = vh;
+    w = h / ratioCard;
+  }
+
+  container.style.width = w + "px";
+  container.style.height = h + "px";
+
+  [bgCanvas, ovCanvas].forEach(c => {
+    c.width = w * dpr;
+    c.height = h * dpr;
+    c.getContext("2d").setTransform(dpr,0,0,dpr,0,0);
+  });
+
+  drawBackground();
+  drawOverlay();
+}
+
+function drawBackground() {
+  bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+  bgCtx.drawImage(bgImg,0,0,bgCanvas.width/dpr,bgCanvas.height/dpr);
+}
+
+function drawOverlay() {
+  ovCtx.clearRect(0,0,ovCanvas.width,ovCanvas.height);
+  ovCtx.drawImage(overlayImg,0,0,ovCanvas.width/dpr,ovCanvas.height/dpr);
+}
+
+function scratch(x,y) {
+  ovCtx.globalCompositeOperation = "destination-out";
+  ovCtx.beginPath();
+  ovCtx.arc(x,y,22,0,Math.PI*2);
+  ovCtx.fill();
+  ovCtx.globalCompositeOperation = "source-over";
+}
+
+ovCanvas.addEventListener("pointerdown", e => {
+  scratching = true;
+  scratch(e.offsetX,e.offsetY);
+});
+
+ovCanvas.addEventListener("pointermove", e => {
+  if(!scratching) return;
+  scratch(e.offsetX,e.offsetY);
+});
+
+["pointerup","pointerleave"].forEach(ev => 
+  ovCanvas.addEventListener(ev, () => scratching=false)
+);
+
+Promise.all([
+  new Promise(r=>bgImg.onload=r),
+  new Promise(r=>overlayImg.onload=r)
+]).then(()=>resize());
+
+window.addEventListener("resize", resize);
+</script>
+
+</body>
+</html>
